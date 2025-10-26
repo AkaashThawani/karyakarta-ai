@@ -1,112 +1,381 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect, useRef } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { io, Socket } from 'socket.io-client';
+import { ChevronDown, ChevronRight, Send, Trash2 } from 'lucide-react';
+import { 
+  AgentMessage, 
+  ChatMessage,
+  generateMessageId,
+  generateSessionId,
+  isResponseMessage,
+  formatTimestamp
+} from '@/types/api';
+
+let socket: Socket | null = null;
 
 export default function Home() {
+  const [prompt, setPrompt] = useState('');
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [currentThoughts, setCurrentThoughts] = useState<AgentMessage[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [expandedThoughts, setExpandedThoughts] = useState<number[]>([]);
+  const [sessionId] = useState(() => {
+    // Try to restore from localStorage, or generate new session
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sessionId');
+      if (saved) return saved;
+    }
+    const newSessionId = generateSessionId('user');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sessionId', newSessionId);
+    }
+    return newSessionId;
+  });
+  
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const processedMessageIds = useRef<Set<string>>(new Set());
+  const currentThoughtsRef = useRef<AgentMessage[]>([]);
+  const currentMessageIdRef = useRef<string>('');
+
+  useEffect(() => {
+    if (socket) return;
+
+    socket = io();
+
+    socket.on('connect', () => {
+      console.log('CLIENT: Connected to socket server!');
+      setIsConnected(true);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('CLIENT: Disconnected from socket server.');
+      setIsConnected(false);
+    });
+
+    socket.on('agent-log', (data: any) => {
+      console.log('========== SOCKET EVENT RECEIVED ==========');
+      console.log('Raw data:', data);
+      
+      let messageObj: AgentMessage;
+      
+      if (typeof data === 'string') {
+        messageObj = {
+          type: 'status',
+          message: data,
+          timestamp: new Date().toISOString()
+        };
+      } else {
+        messageObj = data;
+      }
+      
+      // Handle response messages with deduplication
+      if (isResponseMessage(messageObj)) {
+        console.log('>>> RESPONSE MESSAGE DETECTED <<<');
+        
+        // Use messageId from backend for deduplication
+        const messageId = messageObj.messageId || currentMessageIdRef.current;
+        console.log('Message ID:', messageId);
+        
+        // Check if we've already processed this response
+        if (processedMessageIds.current.has(messageId)) {
+          console.log('🚫 DUPLICATE RESPONSE DETECTED - SKIPPING!');
+          console.log('==========================================\n');
+          return;
+        }
+        
+        console.log('✅ New response - processing...');
+        processedMessageIds.current.add(messageId);
+        
+        // Capture current thoughts
+        const capturedThoughts = [...currentThoughtsRef.current];
+        
+        // Create agent message with ID
+        const agentMessage: ChatMessage = {
+          id: messageId,
+          role: 'agent',
+          content: messageObj.message,
+          timestamp: messageObj.timestamp,
+          thoughts: capturedThoughts
+        };
+        
+        setChatHistory(prev => [...prev, agentMessage]);
+        
+        // Clear thoughts
+        setCurrentThoughts([]);
+        currentThoughtsRef.current = [];
+        setIsProcessing(false);
+        
+        console.log('==========================================\n');
+      } else {
+        // Handle status/thinking messages
+        setCurrentThoughts(prev => {
+          const updated = [...prev, messageObj];
+          currentThoughtsRef.current = updated;
+          return updated;
+        });
+      }
+    });
+
+    return () => {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatHistory]);
+
+  const handleSubmit = async () => {
+    if (!prompt.trim() || !isConnected || isProcessing) return;
+    
+    // Generate unique message ID for this request
+    const messageId = generateMessageId();
+    currentMessageIdRef.current = messageId;
+    
+    const userMessage: ChatMessage = {
+      id: messageId,
+      role: 'user',
+      content: prompt,
+      timestamp: new Date().toISOString(),
+      status: 'sending'
+    };
+    
+    setChatHistory(prev => [...prev, userMessage]);
+    setCurrentThoughts([]);
+    currentThoughtsRef.current = [];
+    setIsProcessing(true);
+    
+    const currentPrompt = prompt;
+    setPrompt('');
+
+    try {
+      await fetch('/api/agent/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          prompt: currentPrompt,
+          messageId: messageId,
+          sessionId: sessionId
+        }),
+      });
+      
+      // Update message status to sent
+      setChatHistory(prev => 
+        prev.map(msg => 
+          msg.id === messageId ? { ...msg, status: 'sent' as const } : msg
+        )
+      );
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setIsProcessing(false);
+      
+      // Update message status to error
+      setChatHistory(prev => 
+        prev.map(msg => 
+          msg.id === messageId ? { ...msg, status: 'error' as const } : msg
+        )
+      );
+    }
+  };
+
+  const clearChat = () => {
+    // Generate new session ID
+    const newSessionId = generateSessionId('user');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sessionId', newSessionId);
+    }
+    
+    // Clear chat history and state
+    setChatHistory([]);
+    setCurrentThoughts([]);
+    currentThoughtsRef.current = [];
+    processedMessageIds.current.clear();
+    setIsProcessing(false);
+    
+    // Reload page to get new session
+    window.location.reload();
+  };
+
+  const toggleThoughts = (index: number) => {
+    setExpandedThoughts(prev =>
+      prev.includes(index)
+        ? prev.filter(i => i !== index)
+        : [...prev, index]
+    );
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
+      <div className="w-full max-w-3xl h-[90vh] flex flex-col">
+        <Card className="flex-1 flex flex-col">
+          <CardHeader className="border-b">
+            <CardTitle className="text-xl font-bold flex items-center justify-between">
+              <span>KaryaKarta Agent</span>
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={clearChat}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  disabled={isProcessing}
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Clear Chat
+                </Button>
+                <span className={`text-xs ${isConnected ? "text-green-500" : "text-red-500"}`}>
+                  {isConnected ? '● Connected' : '● Disconnected'}
+                </span>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          
+          <CardContent className="flex-1 overflow-y-auto p-6 space-y-6">
+            {chatHistory.length === 0 && !isProcessing && (
+              <div className="text-center text-gray-500 dark:text-gray-400 py-12">
+                <p className="text-lg mb-2">Welcome to KaryaKarta Agent</p>
+                <p className="text-sm">Ask me anything and I&apos;ll help you find the information you need.</p>
+              </div>
+            )}
+            
+            {chatHistory.map((message, index) => (
+              <div key={index} className="space-y-3">
+                {message.role === 'user' ? (
+                  <div className="flex items-start gap-3">
+                    <span className="font-semibold text-blue-600 dark:text-blue-400 min-w-[60px]">You:</span>
+                    <p className="text-gray-800 dark:text-gray-200">{message.content}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {message.thoughts && message.thoughts.length > 0 && (
+                      <div className="ml-[60px] mb-2">
+                        <button
+                          onClick={() => toggleThoughts(index)}
+                          className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                        >
+                          {expandedThoughts.includes(index) ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                          <span>Show Agent Thoughts ({message.thoughts.length})</span>
+                        </button>
+                        
+                        {expandedThoughts.includes(index) && (
+                          <div className="mt-3 ml-6 space-y-2 border-l-2 border-gray-300 dark:border-gray-600 pl-4">
+                            {message.thoughts.map((thought, thoughtIndex) => (
+                              <div key={thoughtIndex} className="relative">
+                                <div className="absolute -left-[21px] top-2 w-3 h-3 rounded-full bg-gray-400 dark:bg-gray-500 border-2 border-white dark:border-gray-900"></div>
+                                <div className="text-xs space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 dark:text-gray-400">
+                                      {formatTime(thought.timestamp)}
+                                    </span>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                      thought.type === 'thinking'
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                    }`}>
+                                      {thought.type.toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-700 dark:text-gray-300">{thought.message}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="flex items-start gap-3">
+                      <span className="font-semibold text-green-600 dark:text-green-400 min-w-[60px]">Agent:</span>
+                      <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            {isProcessing && (
+              <div className="space-y-2">
+                {currentThoughts.length > 0 && (
+                  <div className="ml-[60px] space-y-2 border-l-2 border-blue-300 dark:border-blue-600 pl-4 animate-pulse">
+                    {currentThoughts.map((thought, index) => (
+                      <div key={index} className="relative">
+                        <div className="absolute -left-[21px] top-2 w-3 h-3 rounded-full bg-blue-400 dark:bg-blue-500 border-2 border-white dark:border-gray-900"></div>
+                        <div className="text-xs space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500 dark:text-gray-400">
+                              {formatTime(thought.timestamp)}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              thought.type === 'thinking'
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                            }`}>
+                              {thought.type.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-gray-700 dark:text-gray-300">{thought.message}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-start gap-3">
+                  <span className="font-semibold text-green-600 dark:text-green-400 min-w-[60px]">Agent:</span>
+                  <p className="text-gray-500 dark:text-gray-400 italic">Thinking...</p>
+                </div>
+              </div>
+            )}
+            
+            <div ref={chatEndRef} />
+          </CardContent>
+          
+          <div className="border-t p-4">
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Ask me anything..."
+                className="min-h-[60px] resize-none"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                disabled={!isConnected || isProcessing}
+              />
+              <Button
+                onClick={handleSubmit}
+                disabled={!isConnected || isProcessing || !prompt.trim()}
+                className="h-[60px] px-6"
+              >
+                <Send className="w-5 h-5" />
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Press Enter to send, Shift+Enter for new line
+            </p>
+          </div>
+        </Card>
       </div>
     </main>
   );
