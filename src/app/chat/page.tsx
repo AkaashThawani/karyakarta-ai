@@ -1,0 +1,349 @@
+"use client";
+
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { io, Socket } from 'socket.io-client';
+import { Bot, Loader2, ChevronRight } from 'lucide-react';
+import { 
+  AgentMessage, 
+  ChatMessage,
+  generateMessageId,
+  generateSessionId,
+  isResponseMessage,
+} from '@/types/api';
+import { Header } from '@/components/layout/header';
+import { Sidebar } from '@/components/chat/sidebar';
+import { MessageBubble } from '@/components/chat/message-bubble';
+import { ChatInput } from '@/components/chat/chat-input';
+import { AgentStatusPanel } from '@/components/chat/agent-status-panel';
+import { useAuth } from '@/contexts/auth-context';
+import { SessionProvider, useSession } from '@/contexts/session-context';
+
+let socket: Socket | null = null;
+
+function ChatPageContent() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const { currentSession } = useSession();
+  const [prompt, setPrompt] = useState('');
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [currentThoughts, setCurrentThoughts] = useState<AgentMessage[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [historicalThoughts, setHistoricalThoughts] = useState<AgentMessage[]>([]);
+  const [sessionId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sessionId');
+      if (saved) return saved;
+    }
+    const newSessionId = generateSessionId('user');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sessionId', newSessionId);
+    }
+    return newSessionId;
+  });
+  
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const processedMessageIds = useRef<Set<string>>(new Set());
+  const currentThoughtsRef = useRef<AgentMessage[]>([]);
+  const currentMessageIdRef = useRef<string>('');
+
+  // Load messages when session changes
+  useEffect(() => {
+    if (currentSession) {
+      loadSessionMessages(currentSession.session_id);
+    }
+  }, [currentSession?.id]);
+
+  const loadSessionMessages = async (sessionId: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/sessions/${sessionId}/messages`);
+      if (response.ok) {
+        const data = await response.json();
+        const messages: ChatMessage[] = data.messages.map((msg: any) => ({
+          id: msg.message_id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.created_at,
+          status: 'sent'
+        }));
+        setChatHistory(messages);
+      }
+    } catch (error) {
+      console.error('Failed to load session messages:', error);
+    }
+  };
+
+  // Note: No auth redirect - allowing trial mode
+  // Users can try the chat without logging in
+
+  useEffect(() => {
+    if (socket) return;
+
+    socket = io();
+
+    socket.on('connect', () => {
+      setIsConnected(true);
+    });
+
+    socket.on('disconnect', () => {
+      setIsConnected(false);
+    });
+
+    socket.on('agent-log', (data: any) => {
+      let messageObj: AgentMessage;
+      
+      if (typeof data === 'string') {
+        messageObj = {
+          type: 'status',
+          message: data,
+          timestamp: new Date().toISOString()
+        };
+      } else {
+        messageObj = data;
+      }
+
+      if (messageObj.type === 'error') {
+        setIsProcessing(false);
+        setShowDetailPanel(false);
+        
+        const errorMessage: ChatMessage = {
+          id: generateMessageId(),
+          role: 'agent',
+          content: messageObj.message || 'An error occurred. Please try again.',
+          timestamp: messageObj.timestamp,
+        };
+        setChatHistory(prev => [...prev, errorMessage]);
+        setCurrentThoughts([]);
+        currentThoughtsRef.current = [];
+        return;
+      }
+      
+      if (isResponseMessage(messageObj)) {
+        const messageId = messageObj.messageId || currentMessageIdRef.current;
+        
+        if (processedMessageIds.current.has(messageId)) {
+          return;
+        }
+        
+        processedMessageIds.current.add(messageId);
+        const capturedThoughts = [...currentThoughtsRef.current];
+        
+        const agentMessage: ChatMessage = {
+          id: messageId,
+          role: 'agent',
+          content: messageObj.message,
+          timestamp: messageObj.timestamp,
+          thoughts: capturedThoughts
+        };
+        
+        setChatHistory(prev => [...prev, agentMessage]);
+        setCurrentThoughts([]);
+        currentThoughtsRef.current = [];
+        setIsProcessing(false);
+        setShowDetailPanel(false);
+      } else {
+        setCurrentThoughts(prev => {
+          const updated = [...prev, messageObj];
+          currentThoughtsRef.current = updated;
+          return updated;
+        });
+      }
+    });
+
+    return () => {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatHistory, currentThoughts]);
+
+  const handleSubmit = async () => {
+    if (!prompt.trim() || !isConnected || isProcessing) return;
+    
+    // Generate separate IDs for user message and agent response
+    const userMessageId = generateMessageId();
+    const agentMessageId = generateMessageId();
+    currentMessageIdRef.current = agentMessageId;
+    
+    const userMessage: ChatMessage = {
+      id: userMessageId,
+      role: 'user',
+      content: prompt,
+      timestamp: new Date().toISOString(),
+      status: 'sending'
+    };
+    
+    setChatHistory(prev => [...prev, userMessage]);
+    setCurrentThoughts([]);
+    currentThoughtsRef.current = [];
+    setIsProcessing(true);
+    setShowDetailPanel(false);
+    
+    const currentPrompt = prompt;
+    setPrompt('');
+
+    try {
+      await fetch('/api/agent/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          prompt: currentPrompt,
+          messageId: agentMessageId,
+          sessionId: currentSession?.session_id || sessionId
+        }),
+      });
+      
+      setChatHistory(prev => 
+        prev.map(msg => 
+          msg.id === userMessageId ? { ...msg, status: 'sent' as const } : msg
+        )
+      );
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      const errorMessage: ChatMessage = {
+        id: generateMessageId(),
+        role: 'agent',
+        content: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date().toISOString(),
+      };
+      
+      setChatHistory(prev => [
+        ...prev.map(msg => 
+          msg.id === userMessageId ? { ...msg, status: 'error' as const } : msg
+        ),
+        errorMessage
+      ]);
+      
+      setIsProcessing(false);
+      setShowDetailPanel(false);
+      setCurrentThoughts([]);
+      currentThoughtsRef.current = [];
+    }
+  };
+
+  const getCurrentStatus = () => {
+    if (currentThoughts.length > 0) {
+      return currentThoughts[currentThoughts.length - 1].message;
+    }
+    return 'Processing your request...';
+  };
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-screen bg-background">
+      <Header />
+      
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar />
+        
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-6xl mx-auto px-8 py-4">
+              {chatHistory.length === 0 && !isProcessing && (
+                <div className="flex items-center justify-center h-full py-20">
+                  <div className="text-center space-y-6 animate-in fade-in duration-500">
+                    <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-br from-primary/20 via-cyan-500/20 to-purple-500/20 flex items-center justify-center border-2 border-primary/30">
+                      <Bot className="w-12 h-12 text-primary" strokeWidth={1.5} />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-semibold bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-700 bg-clip-text text-transparent">
+                        Ready to Assist
+                      </h3>
+                      <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                        Start a conversation by typing your message below. I&apos;m here to help with tasks, answer questions, and assist you.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {chatHistory.map((message, index) => (
+                <div key={message.id}>
+                  <MessageBubble 
+                    message={message} 
+                    index={index}
+                    onOpenDetails={(thoughts) => {
+                      setHistoricalThoughts(thoughts);
+                      setShowDetailPanel(true);
+                    }}
+                  />
+                  
+                  {message.role === 'user' && isProcessing && index === chatHistory.length - 1 && (
+                    <div className="flex justify-start mb-6 animate-in fade-in duration-300">
+                      <div className="max-w-[80%]">
+                        <button
+                          onClick={() => setShowDetailPanel(!showDetailPanel)}
+                          className="group flex items-center gap-3 px-4 py-3 rounded-xl bg-muted/50 border border-border/50 hover:bg-muted hover:border-border transition-all"
+                        >
+                          <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
+                          <span className="text-sm text-muted-foreground flex-1 text-left">
+                            {getCurrentStatus()}
+                          </span>
+                          <div className="flex items-center gap-1 text-xs text-primary">
+                            <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              {showDetailPanel ? 'Hide' : 'Show'} details
+                            </span>
+                            <ChevronRight className={`w-4 h-4 transition-transform ${showDetailPanel ? 'rotate-90' : ''}`} />
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              <div ref={chatEndRef} />
+            </div>
+          </div>
+          
+          <ChatInput
+            prompt={prompt}
+            setPrompt={setPrompt}
+            onSubmit={handleSubmit}
+            isDisabled={!isConnected || isProcessing}
+            isProcessing={isProcessing}
+          />
+        </div>
+        
+        <div 
+          className={`absolute right-0 top-0 h-full w-80 bg-background border-l border-border transition-transform duration-300 ease-in-out z-50 ${
+            showDetailPanel ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          <AgentStatusPanel 
+            isProcessing={isProcessing}
+            thoughts={isProcessing ? currentThoughts : historicalThoughts}
+            onClose={() => {
+              setShowDetailPanel(false);
+              setHistoricalThoughts([]);
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <SessionProvider>
+      <ChatPageContent />
+    </SessionProvider>
+  );
+}
