@@ -32,6 +32,9 @@ function ChatPageContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   const [historicalThoughts, setHistoricalThoughts] = useState<AgentMessage[]>([]);
+  const [browserActive, setBrowserActive] = useState(false);
+  const [cdpUrl, setCdpUrl] = useState('');
+  const [playwrightLogs, setPlaywrightLogs] = useState<any[]>([]);
   const [sessionId] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('sessionId');
@@ -91,7 +94,30 @@ function ChatPageContent() {
       setIsConnected(false);
     });
 
+    // Handle browser status events
+    socket.on('browser-status', (data: any) => {
+      console.log('Browser status:', data);
+      if (data.status === 'active') {
+        setBrowserActive(true);
+        setCdpUrl(data.cdp_url || '');
+      } else if (data.status === 'closed') {
+        setBrowserActive(false);
+        setCdpUrl('');
+      }
+    });
+
+    // Handle playwright action logs
+    socket.on('playwright-log', (data: any) => {
+      console.log('Playwright log:', data);
+      setPlaywrightLogs(prev => [...prev, data]);
+    });
+
     socket.on('agent-log', (data: any) => {
+      // Filter out custom events (handled by dedicated handlers)
+      if (typeof data === 'object' && (data.type === 'browser-status' || data.type === 'playwright-log')) {
+        return; // Skip these, they're handled by specific handlers above
+      }
+      
       let messageObj: AgentMessage;
       
       if (typeof data === 'string') {
@@ -252,7 +278,8 @@ function ChatPageContent() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         
-        <div className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Chat Section - Left 50% */}
+        <div className="flex-1 flex flex-col overflow-hidden relative border-r border-border">
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-6xl mx-auto px-8 py-4">
               {chatHistory.length === 0 && !isProcessing && (
@@ -319,6 +346,76 @@ function ChatPageContent() {
             isDisabled={!isConnected || isProcessing}
             isProcessing={isProcessing}
           />
+        </div>
+        
+        {/* Browser Section - Right 50% */}
+        <div className="flex-1 flex flex-col bg-muted/30">
+          {/* Browser Header */}
+          <div className="border-b border-border bg-background px-4 py-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${browserActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                Browser View
+              </h2>
+              <span className="text-xs text-muted-foreground">
+                {browserActive ? 'Browser Active' : 'No Browser Active'}
+              </span>
+            </div>
+          </div>
+          
+          {/* Browser Content */}
+          <div className="flex-1 flex items-center justify-center p-8">
+            {browserActive && cdpUrl ? (
+              <iframe
+                src={cdpUrl}
+                className="w-full h-full border rounded"
+                title="Live Browser"
+              />
+            ) : (
+              <div className="text-center space-y-4">
+                <div className="w-20 h-20 mx-auto rounded-2xl bg-muted flex items-center justify-center">
+                  <svg className="w-10 h-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium text-muted-foreground">
+                    No Browser Session
+                  </h3>
+                  <p className="text-sm text-muted-foreground/70 max-w-sm">
+                    Browser will appear here when you run automation tasks
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Playwright Logs */}
+          <div className="border-t border-border bg-background">
+            <div className="px-4 py-2 border-b border-border">
+              <h3 className="text-xs font-semibold text-muted-foreground">
+                Playwright Actions ({playwrightLogs.length})
+              </h3>
+            </div>
+            <div className="h-32 overflow-y-auto p-4 space-y-1">
+              {playwrightLogs.length === 0 ? (
+                <p className="text-xs text-muted-foreground/50 italic">No actions yet...</p>
+              ) : (
+                playwrightLogs.map((log, idx) => (
+                  <div key={idx} className="text-xs font-mono flex items-center gap-2">
+                    {log.status === 'success' && <span className="text-green-500">✓</span>}
+                    {log.status === 'failed' && <span className="text-red-500">✗</span>}
+                    {log.status === 'starting' && <span className="text-yellow-500">⟳</span>}
+                    <span className="text-muted-foreground">
+                      {log.method}
+                      {log.selector && `: ${log.selector}`}
+                      {log.url && `: ${log.url}`}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
         
         <div 

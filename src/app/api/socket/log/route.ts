@@ -8,11 +8,16 @@ export async function POST(req: Request) {
   
   const io = global._io;
   if (io) {
-    // If message is already structured with type, message, and timestamp, emit it as-is
-    // Otherwise wrap it in a structure for compatibility
-    if (body.type && body.message) {
+    // Route custom events to their dedicated channels
+    if (body.type === 'browser-status') {
+      io.emit('browser-status', body);
+    } else if (body.type === 'playwright-log') {
+      io.emit('playwright-log', body);
+    } else if (body.type && body.message) {
+      // Standard agent log with type and message
       io.emit('agent-log', body);
     } else if (body.message) {
+      // Wrap message-only in structure
       io.emit('agent-log', {
         type: 'status',
         message: body.message,

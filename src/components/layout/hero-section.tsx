@@ -15,7 +15,7 @@ export function HeroSection() {
           <div className="flex justify-center animate-float">
             <Badge variant="secondary" className="px-4 py-2 text-sm glass border-primary/20">
               <Sparkles className="w-4 h-4 mr-2 text-primary" />
-              <span className="font-medium">Powered by Advanced AI</span>
+              <span className="font-medium">AI-Powered Browser Automation</span>
             </Badge>
           </div>
           
@@ -25,7 +25,7 @@ export function HeroSection() {
               <span className="gradient-text">KaryaKarta AI</span>
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Your intelligent companion for seamless productivity and instant insights
+              Intelligent multi-agent system with browser automation, web scraping, and self-learning capabilities
             </p>
           </div>
           
@@ -40,9 +40,9 @@ export function HeroSection() {
                       <Zap className="w-8 h-8 text-white" />
                     </div>
                   </div>
-                  <h3 className="font-bold text-lg">Lightning Fast</h3>
+                  <h3 className="font-bold text-lg">Browser Automation</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Instant responses powered by cutting-edge AI technology for real-time assistance
+                    Navigate websites, fill forms, and automate tasks with intelligent multi-step execution
                   </p>
                 </div>
               </CardContent>
@@ -57,9 +57,9 @@ export function HeroSection() {
                       <Brain className="w-8 h-8 text-white" />
                     </div>
                   </div>
-                  <h3 className="font-bold text-lg">Smart Thinking</h3>
+                  <h3 className="font-bold text-lg">Self-Learning</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Advanced reasoning with transparent thought process visualization
+                    Adaptive system that learns from every interaction and improves selector accuracy over time
                   </p>
                 </div>
               </CardContent>
@@ -74,9 +74,9 @@ export function HeroSection() {
                       <Shield className="w-8 h-8 text-white" />
                     </div>
                   </div>
-                  <h3 className="font-bold text-lg">Secure & Private</h3>
+                  <h3 className="font-bold text-lg">Intelligent Routing</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Your conversations are encrypted and stored with enterprise-grade security
+                    Multi-agent system with semantic selector hints and adaptive retry for reliable automation
                   </p>
                 </div>
               </CardContent>
@@ -87,15 +87,15 @@ export function HeroSection() {
           <div className="flex flex-wrap justify-center gap-6 mt-12 pt-8 border-t border-border/50">
             <div className="flex items-center gap-2 px-4 py-2 rounded-full glass">
               <Rocket className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">Fast Performance</span>
+              <span className="text-sm font-medium">3s Selector Retry</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-full glass">
               <Star className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">Premium Quality</span>
+              <span className="text-sm font-medium">Multi-Step Tasks</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-full glass">
               <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">AI-Powered</span>
+              <span className="text-sm font-medium">Self-Improving AI</span>
             </div>
           </div>
         </div>

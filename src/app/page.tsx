@@ -58,90 +58,63 @@ export default function Home() {
               
             </div>
             
-            {/* Right Content - Stats Cards */}
-            <div className="grid grid-cols-2 gap-4">
-              <Card className="p-6 transition-all hover:scale-105">
-                <CardContent className="p-0 space-y-2">
-                  <TrendingUp className="w-8 h-8 text-blue-600" />
-                  <div className="text-3xl font-bold">10x</div>
-                  <div className="text-sm text-muted-foreground">Faster Results</div>
-                </CardContent>
-              </Card>
-              <Card className="p-6 hover:shadow-lg transition-shadow">
-                <CardContent className="p-0 space-y-2">
-                  <Users className="w-8 h-8 text-cyan-600" />
-                  <div className="text-3xl font-bold">50k+</div>
-                  <div className="text-sm text-muted-foreground">Active Users</div>
-                </CardContent>
-              </Card>
-              <Card className="p-6 hover:shadow-lg transition-shadow">
-                <CardContent className="p-0 space-y-2">
-                  <Globe className="w-8 h-8 text-green-600" />
-                  <div className="text-3xl font-bold">120+</div>
-                  <div className="text-sm text-muted-foreground">Countries</div>
-                </CardContent>
-              </Card>
-              <Card className="p-6 hover:shadow-lg transition-shadow">
-                <CardContent className="p-0 space-y-2">
-                  <Sparkles className="w-8 h-8 text-purple-600" />
-                  <div className="text-3xl font-bold">99.9%</div>
-                  <div className="text-sm text-muted-foreground">Uptime</div>
-                </CardContent>
-              </Card>
+            {/* Right Content - Feature Preview */}
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-2xl font-bold">Everything you need</h3>
+                <p className="text-muted-foreground">
+                  Powerful AI capabilities designed for modern workflows
+                </p>
+              </div>
+              
+              <div className="space-y-4">
+                <Card className="p-5 hover:shadow-lg transition-all">
+                  <CardContent className="p-0 flex gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                      <Zap className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold mb-1">Browser Automation</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Navigate websites, fill forms, and automate tasks with intelligent multi-step execution
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="p-5 hover:shadow-lg transition-all">
+                  <CardContent className="p-0 flex gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
+                      <Brain className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold mb-1">Self-Learning AI</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Adaptive system that learns from every interaction and improves over time
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="p-5 hover:shadow-lg transition-all">
+                  <CardContent className="p-0 flex gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center flex-shrink-0">
+                      <Shield className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold mb-1">Smart Routing</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Multi-agent system with semantic hints and adaptive retry for reliable automation
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
         </div>
       </section>
       
-      {/* Features Section */}
-      <section className="py-20 border-y bg-muted/30">
-        <div className="container max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16 space-y-4">
-            <h2 className="text-4xl md:text-5xl font-bold">Everything you need</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Powerful AI capabilities designed for modern workflows
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-8">
-            <Card className="group transition-all duration-300 border-2 hover:border-primary/50 hover:scale-105">
-              <CardContent className="p-8">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <Zap className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-xl font-bold mb-3">Lightning Fast</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Get instant responses with our optimized AI infrastructure. No waiting, just results.
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card className="group hover:shadow-xl transition-all duration-300 border-2 hover:border-primary/50">
-              <CardContent className="p-8">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <Brain className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-xl font-bold mb-3">Smart Thinking</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Advanced reasoning with full transparency. See exactly how AI thinks through problems.
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card className="group hover:shadow-xl transition-all duration-300 border-2 hover:border-primary/50">
-              <CardContent className="p-8">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <Shield className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-xl font-bold mb-3">Enterprise Security</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  Bank-level encryption and compliance. Your data is always protected and private.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
       
       {/* CTA Section */}
       {/* <section className="py-20">
