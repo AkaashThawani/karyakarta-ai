@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,10 +9,42 @@ import { Sparkles, Zap, Shield, Brain, ArrowRight, UserPlus, Check, TrendingUp, 
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { useAuthModal } from "@/hooks/use-auth-modal";
+import { useAuth } from "@/contexts/auth-context";
 import Link from "next/link";
 
 export default function Home() {
   const { openModal } = useAuthModal();
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  // Redirect authenticated users to /chat
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/chat');
+    }
+  }, [user, loading, router]);
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <div className="relative">
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 mx-auto animate-pulse">
+              <Sparkles className="h-8 w-8 text-white" />
+            </div>
+          </div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Don't render landing page if user is authenticated (will redirect)
+  if (user) {
+    return null;
+  }
+
   return (
     <main className="flex min-h-screen flex-col bg-background">
       <Header />

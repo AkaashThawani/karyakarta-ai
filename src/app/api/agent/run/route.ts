@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 
 declare const global: { _io: any; };
 
-const PYTHON_AGENT_URL = 'http://localhost:8000/execute-task';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+const PYTHON_AGENT_URL = `${API_URL}/execute-task`;
 
 export async function POST(req: Request) {
   const { prompt, messageId, sessionId } = await req.json();

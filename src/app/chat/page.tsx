@@ -61,7 +61,8 @@ function ChatPageContent() {
 
   const loadSessionMessages = async (sessionId: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/sessions/${sessionId}/messages`);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+      const response = await fetch(`${apiUrl}/sessions/${sessionId}/messages`);
       if (response.ok) {
         const data = await response.json();
         const messages: ChatMessage[] = data.messages.map((msg: any) => ({
