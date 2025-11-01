@@ -2,13 +2,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2 } from "lucide-react";
+import { Send, StopCircle } from "lucide-react";
 import { KeyboardEvent } from "react";
 
 interface ChatInputProps {
   prompt: string;
   setPrompt: (value: string) => void;
   onSubmit: () => void;
+  onStop: () => void;
   isDisabled: boolean;
   isProcessing: boolean;
 }
@@ -17,6 +18,7 @@ export function ChatInput({
   prompt,
   setPrompt,
   onSubmit,
+  onStop,
   isDisabled,
   isProcessing,
 }: ChatInputProps) {
@@ -44,18 +46,24 @@ export function ChatInput({
                 disabled={isDisabled}
               />
             </div>
-            <Button
-              onClick={onSubmit}
-              disabled={isDisabled || !prompt.trim()}
-              className="h-[60px] px-8 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white border-0 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              size="lg"
-            >
-              {isProcessing ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
+            {isProcessing ? (
+              <Button
+                onClick={onStop}
+                className="h-[60px] px-8 rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white border-0 transition-all duration-300"
+                size="lg"
+              >
+                <StopCircle className="w-5 h-5" />
+              </Button>
+            ) : (
+              <Button
+                onClick={onSubmit}
+                disabled={isDisabled || !prompt.trim()}
+                className="h-[60px] px-8 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white border-0 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                size="lg"
+              >
                 <Send className="w-5 h-5" />
-              )}
-            </Button>
+              </Button>
+            )}
           </div>
         </div>
         

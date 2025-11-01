@@ -35,6 +35,7 @@ function ChatPageContent() {
   const [browserActive, setBrowserActive] = useState(false);
   const [cdpUrl, setCdpUrl] = useState('');
   const [playwrightLogs, setPlaywrightLogs] = useState<any[]>([]);
+  const [currentMessageId, setCurrentMessageId] = useState<string>('');
   const [sessionId] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('sessionId');
@@ -134,6 +135,7 @@ function ChatPageContent() {
       if (messageObj.type === 'error') {
         setIsProcessing(false);
         setShowDetailPanel(false);
+        setCurrentMessageId('');
         
         const errorMessage: ChatMessage = {
           id: generateMessageId(),
@@ -170,6 +172,7 @@ function ChatPageContent() {
         currentThoughtsRef.current = [];
         setIsProcessing(false);
         setShowDetailPanel(false);
+        setCurrentMessageId('');
       } else {
         setCurrentThoughts(prev => {
           const updated = [...prev, messageObj];
@@ -198,6 +201,7 @@ function ChatPageContent() {
     const userMessageId = generateMessageId();
     const agentMessageId = generateMessageId();
     currentMessageIdRef.current = agentMessageId;
+    setCurrentMessageId(agentMessageId);
     
     const userMessage: ChatMessage = {
       id: userMessageId,
@@ -234,6 +238,7 @@ function ChatPageContent() {
       );
     } catch (error) {
       console.error('Error sending message:', error);
+      setCurrentMessageId('');
       
       const errorMessage: ChatMessage = {
         id: generateMessageId(),
@@ -253,6 +258,35 @@ function ChatPageContent() {
       setShowDetailPanel(false);
       setCurrentThoughts([]);
       currentThoughtsRef.current = [];
+      setCurrentMessageId('');
+    }
+  };
+
+  const handleStop = async () => {
+    if (!currentMessageId) {
+      console.log('[Chat] No active task to stop');
+      return;
+    }
+
+    console.log(`[Chat] Stopping task: ${currentMessageId}`);
+    
+    try {
+      const response = await fetch('/api/agent/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: currentMessageId }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log(`[Chat] Task cancelled: ${result.message}`);
+        // UI will be updated via socket event from backend
+      } else {
+        console.error(`[Chat] Failed to cancel task: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('[Chat] Error cancelling task:', error);
     }
   };
 
@@ -344,14 +378,15 @@ function ChatPageContent() {
             prompt={prompt}
             setPrompt={setPrompt}
             onSubmit={handleSubmit}
+            onStop={handleStop}
             isDisabled={!isConnected || isProcessing}
             isProcessing={isProcessing}
           />
         </div>
         
-        {/* Browser Section - Right 50% */}
+        {/* Browser Section - HIDDEN */}
+        {/* Uncomment this section to show browser view
         <div className="flex-1 flex flex-col bg-muted/30">
-          {/* Browser Header */}
           <div className="border-b border-border bg-background px-4 py-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold flex items-center gap-2">
@@ -364,7 +399,6 @@ function ChatPageContent() {
             </div>
           </div>
           
-          {/* Browser Content */}
           <div className="flex-1 flex items-center justify-center p-8">
             {browserActive && cdpUrl ? (
               <iframe
@@ -391,7 +425,6 @@ function ChatPageContent() {
             )}
           </div>
           
-          {/* Playwright Logs */}
           <div className="border-t border-border bg-background">
             <div className="px-4 py-2 border-b border-border">
               <h3 className="text-xs font-semibold text-muted-foreground">
@@ -418,6 +451,7 @@ function ChatPageContent() {
             </div>
           </div>
         </div>
+        */}
         
         <div 
           className={`absolute right-0 top-0 h-full w-80 bg-background border-l border-border transition-transform duration-300 ease-in-out z-50 ${
