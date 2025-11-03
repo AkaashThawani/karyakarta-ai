@@ -263,30 +263,29 @@ function ChatPageContent() {
   };
 
   const handleStop = async () => {
-    if (!currentMessageId) {
-      console.log('[Chat] No active task to stop');
-      return;
-    }
-
-    console.log(`[Chat] Stopping task: ${currentMessageId}`);
+    console.log('[Chat] Stopping all active tasks');
     
     try {
+      // Send "all" to cancel all active tasks instead of just the current one
       const response = await fetch('/api/agent/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageId: currentMessageId }),
+        body: JSON.stringify({ messageId: 'all' }),
       });
 
       const result = await response.json();
       
       if (result.success) {
-        console.log(`[Chat] Task cancelled: ${result.message}`);
+        console.log(`[Chat] Tasks cancelled: ${result.message}`);
         // UI will be updated via socket event from backend
+        setIsProcessing(false);
+        setShowDetailPanel(false);
+        setCurrentMessageId('');
       } else {
-        console.error(`[Chat] Failed to cancel task: ${result.message}`);
+        console.error(`[Chat] Failed to cancel tasks: ${result.message}`);
       }
     } catch (error) {
-      console.error('[Chat] Error cancelling task:', error);
+      console.error('[Chat] Error cancelling tasks:', error);
     }
   };
 
