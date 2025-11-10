@@ -102,33 +102,13 @@ function parseTextFormatting(text: string): JSX.Element[] {
 }
 
 /**
- * Long text component with expand/collapse
+ * Full text renderer - always shows complete content
  */
-function LongTextRenderer({ text }: { text: string }) {
-  const [expanded, setExpanded] = useState(false);
-  
+function FullTextRenderer({ text }: { text: string }) {
   return (
-    <div>
-      <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
-        {expanded ? parseTextFormatting(text) : parseTextFormatting(text.slice(0, 200) + '...')}
-      </p>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1"
-      >
-        {expanded ? (
-          <>
-            <ChevronDown className="w-3 h-3" />
-            Show less
-          </>
-        ) : (
-          <>
-            <ChevronRight className="w-3 h-3" />
-            Read more
-          </>
-        )}
-      </button>
-    </div>
+    <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
+      {parseTextFormatting(text)}
+    </p>
   );
 }
 
@@ -209,17 +189,8 @@ function ValueFormatter({ value, depth = 0 }: { value: any; depth?: number }): J
       );
     }
 
-    // Long text (>200 chars) - add read more
-    if (trimmed.length > 200) {
-      return <LongTextRenderer text={trimmed} />;
-    }
-
-    // Regular text with formatting support
-    return (
-      <span className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
-        {parseTextFormatting(trimmed)}
-      </span>
-    );
+    // Always show full text - no truncation
+    return <FullTextRenderer text={trimmed} />;
   }
 
   // Fallback
