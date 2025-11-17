@@ -4,28 +4,31 @@ const next = require('next');
 const { Server } = require('socket.io');
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
-const port = 3000;
+
+// IMPORTANT: bind to 0.0.0.0 and dynamic Render port
+const hostname = '0.0.0.0';
+const port = process.env.PORT || 3000;
 
 // Create the Next.js app instance
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
-  // Create our custom HTTP server
   const httpServer = createServer((req, res) => {
     const parsedUrl = parse(req.url, true);
-    // Let Next.js handle all requests
     handle(req, res, parsedUrl);
   });
 
-  // Attach Socket.IO to our custom server
-  const io = new Server(httpServer);
+  // FIX: Add CORS!
+  const io = new Server(httpServer, {
+    cors: {
+      origin: "*", // or specific frontend URL
+      methods: ["GET", "POST"],
+    }
+  });
 
-  // Store the io instance in a global variable to be accessed from API routes
   global._io = io;
 
-  // Listen for new client connections
   io.on('connection', (socket) => {
     console.log(`[Socket.IO] Client connected: ${socket.id}`);
     socket.emit('status', 'Successfully connected to the agent server.');
@@ -34,9 +37,8 @@ app.prepare().then(() => {
     });
   });
 
-  // Start the server
   httpServer
-    .listen(port, () => {
+    .listen(port, hostname, () => {
       console.log(`> Ready on http://${hostname}:${port}`);
     })
     .on('error', (err) => {

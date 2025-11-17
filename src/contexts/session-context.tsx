@@ -24,7 +24,7 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -77,7 +77,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const response = await fetch(`${API_URL}/sessions?user_id=${user.id}`);
+      const response = await fetch(`${API_URL}/sessions/?user_id=${user.id}`);
 
       if (response.ok) {
         const data = await response.json();

@@ -212,8 +212,7 @@ The frontend connects to the karyakarta-agent backend:
 
 ```typescript
 // Configuration
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 // API Client
 const response = await fetch(`${API_URL}/execute-task`, {
   method: 'POST',

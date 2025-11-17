@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const PYTHON_CANCEL_URL = `${API_URL}/cancel-task`;
 
 export async function POST(req: Request) {
