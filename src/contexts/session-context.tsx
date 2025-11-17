@@ -41,6 +41,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     console.log('🔍 Session Context - User changed:', user);
     console.log('🔍 Session Context - User ID:', user?.id);
+    console.log('🔍 API_URL being used:', API_URL);
+    // Check what API URL is actually being used
+    console.log('API_URL:', process.env.NEXT_PUBLIC_API_URL);
+
+    // Check all env vars
+    console.log('All env vars:', Object.keys(process.env).filter(key => key.startsWith('NEXT_PUBLIC')));
 
     if (user) {
       const now = Date.now();
@@ -69,14 +75,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (initialLoad) {
       setLoading(true);
     }
-    
+
     try {
       const response = await fetch(`${API_URL}/sessions?user_id=${user.id}`);
-      
+
       if (response.ok) {
         const data = await response.json();
         setSessions(data.sessions || []);
-        
+
         // If no current session, create one
         if (!currentSession && data.sessions.length === 0) {
           await createNewSession();
@@ -113,16 +119,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         const newSession = data.session;
-        
+
         setSessions((prev) => [newSession, ...prev]);
         setCurrentSession(newSession);
-        
+
         return newSession;
       }
     } catch (error) {
       console.error('Failed to create session:', error);
     }
-    
+
     return null;
   };
 
@@ -148,11 +154,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         const updatedSession = data.session;
-        
+
         setSessions((prev) =>
           prev.map((s) => (s.id === sessionId ? updatedSession : s))
         );
-        
+
         if (currentSession?.id === sessionId) {
           setCurrentSession(updatedSession);
         }
@@ -172,7 +178,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-        
+
         // If deleted current session, switch to another or create new
         if (currentSession?.id === sessionId) {
           const remainingSessions = sessions.filter((s) => s.id !== sessionId);
