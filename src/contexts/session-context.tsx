@@ -39,16 +39,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // Load user sessions when authenticated with debouncing
   useEffect(() => {
+    console.log('🔍 Session Context - User changed:', user);
+    console.log('🔍 Session Context - User ID:', user?.id);
+
     if (user) {
       const now = Date.now();
       const timeSinceLastRefresh = now - lastRefreshTime;
-      
+
       // Only refresh if initial load or more than 5 minutes have passed
       if (initialLoad || timeSinceLastRefresh >= REFRESH_DEBOUNCE_MS) {
+        console.log('🔍 Session Context - Loading sessions for user:', user.id);
         loadSessions();
         setLastRefreshTime(now);
       }
     } else {
+      console.log('🔍 Session Context - No user, clearing sessions');
       setSessions([]);
       setCurrentSession(null);
       setLoading(false);

@@ -30,8 +30,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🔐 Auth Context - Initializing...');
+
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('🔐 Auth Context - Initial session:', session);
+      console.log('🔐 Auth Context - Initial user:', session?.user);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -41,6 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('🔐 Auth Context - Auth state changed:', _event, session);
+      console.log('🔐 Auth Context - User after change:', session?.user);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
